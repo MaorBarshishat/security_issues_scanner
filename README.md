@@ -41,6 +41,7 @@ docker run --rm --network host -v $(pwd):/usr/src sonarsource/sonar-scanner-cli 
 ```
 
 After the scanning process completes, analyze the results and store them in output.txt:
+clone the project and follow these commands
 ```bash
 # Start the analysis
 pip install -r requirements.txt
