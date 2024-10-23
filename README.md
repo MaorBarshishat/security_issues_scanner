@@ -9,7 +9,19 @@ This Telegram bot was created for a technical assessment during an interview. It
 
 ## How to Run
 
-### Step 1: Create a Properties File
+### step 1: Initialize the sonar qube
+Use Docker volumes to persist data across container restarts, allowing for shared storage that can be easily managed and backed up.
+```bash
+# Start the SonarQube server
+docker run -d --name sonarqube --network -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
+```
+1. See in http://localhost:9000/maintenance?return_to=%2F and wait until login page
+2. username: admin password: admin
+3. navigate to top right My Account < Security
+4. create token. Type: User token, Expires in: No expiration
+5. copy the given token  
+
+### Step 2: Create a Properties File
 Create a `sonar-project.properties` file in the directory you wish to scan:
 
 ```properties
@@ -20,19 +32,16 @@ sonar.sources=/home/maor/Desktop/hack_train_ticket/train-ticket
 sonar.language=java,js,py,go
 sonar.sourceEncoding=UTF-8
 sonar.host.url=http://localhost:9000
-sonar.login=squ_6d776a666a6b8c781c15cf13fc4179a825719d9e
+sonar.login={YOUR_TOKEN}    # put your token here
 sonar.javascript.lcov.reportPaths=lcov.info
 sonar.exclusions=**/*.java
 ```
 
-### Step 2: Run the Scanner using Docker
+### Step 3: Run the Scanner using Docker
 Run the following commands in the directory containing your project:
 
 Wait until the server is up, then access it at http://localhost:9000/. SonarQube provides an intuitive UI where you can monitor the scanning process.
-```bash
-# Start the SonarQube server
-docker run -d --name sonarqube --network -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
-```
+
 
 Next, run this command in the directory you want to scan:
 ```bash
@@ -40,8 +49,10 @@ Next, run this command in the directory you want to scan:
 docker run --rm --network host -v $(pwd):/usr/src sonarsource/sonar-scanner-cli -Dsonar.projectKey=com.companyname.mycoolproject -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000
 ```
 
-After the scanning process completes, analyze the results and store them in output.txt:
-clone the project and follow these commands
+### Step 4: Analyze the scanning results
+1. clone the project
+2. enter .env and put your token
+3. follow the commands bellow
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows use `venv\Scripts\activate`
