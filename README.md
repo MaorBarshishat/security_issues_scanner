@@ -13,7 +13,7 @@ This Telegram bot was created for a technical assessment during an interview. It
 Use Docker volumes to persist data across container restarts, allowing for shared storage that can be easily managed and backed up.
 ```bash
 # Start the SonarQube server
-docker run -d --name sonarqube --network -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
+docker run -d --name sonarqube -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
 ```
 1. See in http://localhost:9000/maintenance?return_to=%2F and wait until login page
 2. username: admin password: admin
