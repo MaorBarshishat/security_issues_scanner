@@ -1,142 +1,97 @@
-import json
 import requests
-import yaml
-import html2text
+from jinja2 import Template
 from dotenv import load_dotenv
 import os
 
 # Load environment variables from the .env file
 load_dotenv()
 
-# Constants
+# Constants for API interaction
 TOKEN = os.getenv("TOKEN")
 PROJECT_KEY = os.getenv("KEY")
-API_BASE_URL = "http://localhost:9000/api"
-VULNERABILITIES_LIMIT = 5  # Limit for the number of vulnerabilities to fetch
+API_BASE_URL = "https://sonarcloud.io/api"
+HEADERS = {'Authorization': f'Bearer {TOKEN}'}
 
-HEADERS = {
-    'Authorization': f'Bearer {TOKEN}',
-}
-
-# Keys to exclude when processing vulnerabilities
+# Keys to exclude from the vulnerability data
 EXCLUDED_KEYS = {
-    'flows', 'messageFormattings', 'key', 'project',
+    'flows', 'messageFormattings', 'project',
     'status', 'author', 'creationDate', 'updateDate'
 }
 
+# Limit for the number of vulnerabilities to fetch
+VULNERABILITIES_LIMIT = 5
+
 
 def send_request(url):
-    """
-    Send a GET request to the SonarQube server and return the response text.
-    Args:url (str): The URL to send the request to.
-    Returns:str: Response text if the request is successful; empty string otherwise.
-    """
+    """Send a GET request and return the response JSON."""
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()  # Raise an error for bad responses
-        return response.text
-
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-    except requests.exceptions.RequestException as req_err:
-        print(f"Request error occurred: {req_err}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-
-    return ""  # Return an empty string on failure
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return {}
 
 
 def fetch_vulnerabilities():
-    """
-    Fetch the top five vulnerabilities from the SonarQube API.
-    Returns:list: A list of dictionaries representing the vulnerabilities.
-    """
-    url = f"{API_BASE_URL}/hotspots/search?inNewCodePeriod=false&onlyMine=false&p=1&project={PROJECT_KEY}&ps=500&status=TO_REVIEW"
+    """Fetch top vulnerabilities from the SonarQube API."""
+    url = f"{API_BASE_URL}/hotspots/search?projectKey={PROJECT_KEY}&p=1&ps=500&sinceLeakPeriod=false&status=TO_REVIEW"
     results = send_request(url)
+    vulnerabilities = results.get('hotspots', [])[:VULNERABILITIES_LIMIT]
 
-    if results:
-        vulnerabilities = json.loads(results).get('hotspots', [])[:VULNERABILITIES_LIMIT]       # fetch top 5 vulnerabilities
-        return [{k: v for k, v in vuln.items() if k not in EXCLUDED_KEYS} for vuln in vulnerabilities]      # delete unnecessary keys from vulnerabilities by EXCLUDED_KEYS arr
-
-    return []  # Return an empty list if no results
-
-
-def fetch_vulnerability_description(rule_key):
-    """
-    Fetch the description of a vulnerability by its rule key.
-    Args:rule_key (str): The rule key for the vulnerability.
-    Returns: list: List of description sections for the rule.
-    """
-    url = f"{API_BASE_URL}/rules/show?key=javascript%3A{rule_key}"
-    results = send_request(url)
-
-    return json.loads(results).get('rule', {}).get('descriptionSections',
-                                                   []) if results else []  # Return empty list if no results
-
-
-def format_description(description_sections):
-    """
-    Format the description sections for better readability.
-    Args:description_sections (list): The sections to format.
-    Returns:list: Formatted description sections.
-    """
+    # Filter out excluded keys from vulnerabilities
     return [
-        {section['key'].replace("_", " "): html2text.html2text(section['content']).replace("\n\n", '\n')}
-        for section in description_sections
+        {k: v for k, v in vuln.items() if k not in EXCLUDED_KEYS}
+        for vuln in vulnerabilities
     ]
 
 
+def fetch_vulnerability_description(rule_key):
+    """Fetch the description of a vulnerability by its rule key."""
+    url = f"{API_BASE_URL}/hotspots/show?hotspot={rule_key}"
+    result = send_request(url).get('rule', {})
+
+    return {
+        'riskDescription': result.get('riskDescription'),
+        'vulnerabilityDescription': result.get('vulnerabilityDescription'),
+        'fixRecommendations': result.get('fixRecommendations')
+    }
+
+
 def process_vulnerabilities(vulnerabilities):
-    """
-    Process and format the top vulnerabilities.
-    Args:vulnerabilities (list): List of vulnerabilities to process.
-    Returns:list: Processed vulnerabilities with descriptions.
-    """
-    processed_vulnerabilities = []
-
-    for vulnerability in vulnerabilities:  # Process each vulnerability
+    """Process vulnerabilities to include their descriptions."""
+    processed = []
+    for vuln in vulnerabilities:
         try:
-            rule_key = vulnerability['ruleKey'].split(":")[1]  # Extract rule key
-            description_sections = fetch_vulnerability_description(rule_key)
-            vulnerability['descriptionSections'] = format_description(description_sections)
-            processed_vulnerabilities.append(vulnerability)  # Append the processed vulnerability
-
+            vuln['description sections'] = fetch_vulnerability_description(vuln['key'])     # get description
+            processed.append(vuln)
         except Exception as e:
-            print(f"An error occurred while processing vulnerability '{vulnerability.get('ruleKey')}': {e}")
+            print(f"Error processing '{vuln.get('ruleKey')}': {e}")
+    return processed
 
-    return processed_vulnerabilities  # Return all processed vulnerabilities
 
-
-def save_vulnerabilities_to_file(vulnerabilities, filename='output.txt'):
-    """
-    Save the processed vulnerabilities to a file in YAML format.
-    Args:vulnerabilities (list): List of top 5 vulnerabilities to present.
-        filename (str): The name of the file to save to.
-    """
+def save_vulnerabilities_to_file(vulnerabilities, filename='top_5_vulnerabilities.html'):
+    """Save the processed vulnerabilities to an HTML file."""
+    template = Template("<ul>{% for key, value in data.items() %}<li>{{ key }}: {{ value }}</li>{% endfor %}</ul>")     # template for html file structure of each vulnerability
+    
+    # write to html file in chunks
     try:
         with open(filename, 'w') as file:
-            for count, vulnerability in enumerate(vulnerabilities, start=1):
-                file.write(f"--------------------------- Vulnerability number {count} ---------------------------\n\n")
-                yaml.dump(vulnerability, file, default_flow_style=False, sort_keys=False)
-
-    except IOError as io_err:
-        print(f"Error writing to file '{filename}': {io_err}")
-        raise  # Re-raise the exception to notify the calling code of the failure
+            for count, vuln in enumerate(vulnerabilities, 1):
+                html_content = template.render(data=vuln)
+                file.write(f"<h2>--- Vulnerability {count} ---</h2><br>" + html_content.replace("\\n",
+                                                                                                "<br>") + "<br><br><br>")
+    except IOError as e:
+        print(f"File write error: {e}")
 
 
 def main():
-    """
-    Main function to orchestrate the fetching, processing, and saving of vulnerabilities.
-    """
-    try:
-        vulnerabilities = fetch_vulnerabilities()
-
-        if vulnerabilities:
-            processed_vulnerabilities = process_vulnerabilities(vulnerabilities)
-            save_vulnerabilities_to_file(processed_vulnerabilities)
-
-    except Exception as e:
-        print(f"An error occurred in the main function: {e}")
+    """Main function to orchestrate fetching, processing, and saving vulnerabilities."""
+    vulnerabilities = fetch_vulnerabilities()
+    if vulnerabilities:
+        processed_vulnerabilities = process_vulnerabilities(vulnerabilities)
+        save_vulnerabilities_to_file(processed_vulnerabilities)
+        print("Output saved in top_5_vulnerabilities.html")
 
 
 if __name__ == "__main__":
