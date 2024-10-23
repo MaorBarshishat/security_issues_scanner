@@ -43,9 +43,10 @@ docker run --rm --network host -v $(pwd):/usr/src sonarsource/sonar-scanner-cli 
 After the scanning process completes, analyze the results and store them in output.txt:
 clone the project and follow these commands
 ```bash
-# Start the analysis
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 pip install -r requirements.txt
-sudo ./analyze_scan.py
+python3 ./analyze_scan.py   # On Windows use `python ./analyze_scan.py`
 ```
 
 - To see the output.txt
