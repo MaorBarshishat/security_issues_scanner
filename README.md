@@ -31,7 +31,7 @@ Run the following commands in the directory containing your project:
 Wait until the server is up, then access it at http://localhost:9000/. SonarQube provides an intuitive UI where you can monitor the scanning process.
 ```bash
 # Start the SonarQube server
-docker run -d --name sonarqube -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
+docker run -d --name sonarqube --network -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 -v sonarqube_data:/opt/sonarqube/data maorbarshishat/sonarqube_server:1.0
 ```
 
 Next, run this command in the directory you want to scan:
@@ -43,5 +43,11 @@ docker run --rm --network host -v $(pwd):/usr/src sonarsource/sonar-scanner-cli 
 After the scanning process completes, analyze the results and store them in output.txt:
 ```bash
 # Start the analysis
-docker run --name analyzer analyze_scanning
+pip install -r requirements.txt
+sudo ./analyze_scan.py
+```
+
+- To see the output.txt
+```bash
+open output.txt
 ```
