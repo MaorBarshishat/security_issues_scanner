@@ -9,16 +9,16 @@
   - **bash script** I have created a bash script to automate the process of installing, cloning, scanning and fetching results.
 
 * **The process**:
-1. The bash program clones the input git repository into a /tmp/work folder.
-2. A properties file is created on that folder to configure the sonar parameters.
-3. Running the sonarscanner docker that will perform the scan locally and send the results to SonarCloud.
-4. Executing the python3 client application to access SonarCloud and fetch the 5 top results, and then formatting to a nice html format.
+  1. The bash program clones the input git repository into a /tmp/work folder.
+  2. A properties file is created on that folder to configure the sonar parameters.
+  3. Running the sonarscanner docker that will perform the scan locally and send the results to SonarCloud.
+  4. Executing the python3 client application to access SonarCloud and fetch the 5 top results, and then formatting to a nice html format.
 
 * **Requirements:**
-It is assume to have the following on your local machine:
-- docker
-- python3
-- pip
+  It is assume to have the following on your local machine:
+  - docker
+  - python3
+  - pip
 
 * **How to run:**
 The following will apply the code analysis on https://github.com/FudanSELab/train-ticket.git
