@@ -8,10 +8,9 @@ import os
 load_dotenv()
 
 # Constants for SonarCloud API interaction
-TOKEN = os.getenv("TOKEN")
 PROJECT_KEY = os.getenv("KEY")
 API_BASE_URL = "https://sonarcloud.io/api"
-HEADERS = {'Authorization': f'Bearer {TOKEN}'}
+HEADERS = {'Authorization': f'Bearer {os.getenv("TOKEN")}'}
 OUTPUT_FILE = "top_5_vulnerabilities.html"
 
 # Keys to exclude from the vulnerability data
@@ -31,7 +30,7 @@ def send_request(url):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Request https error")
+        print(f"Request https {e.response.status_code} - {e.response.text} error")
         raise
 
 
@@ -39,14 +38,18 @@ def fetch_vulnerabilities():
     """Fetch top vulnerabilities from the SonarQube API."""
     url = f"{API_BASE_URL}/hotspots/search?projectKey={PROJECT_KEY}&p=1&ps={TOP_VULNERABILITIES_LIMIT}&sinceLeakPeriod=false&status=TO_REVIEW"
     results = send_request(url)
-    vulnerabilities = results.get('hotspots', [])
 
-    # Filter out excluded keys from vulnerabilities
-    return [
-        {k: v for k, v in vuln.items() if k not in EXCLUDED_KEYS}
-        for vuln in vulnerabilities
-    ]
+    try:
+        vulnerabilities = results.get('hotspots', [])
 
+        # Filter out excluded keys from vulnerabilities
+        return [
+            {k: v for k, v in vuln.items() if k not in EXCLUDED_KEYS}
+            for vuln in vulnerabilities
+        ]
+    except Exception as e:
+        print("failed to get vulnerabilities")
+        raise
 
 def fetch_vulnerability_description(rule_key):
     """Fetch the description of a vulnerability by its rule key."""
@@ -66,16 +69,18 @@ def process_vulnerabilities(vulnerabilities):
     for vuln in vulnerabilities:
         try:
             # get description per each vulnerability and append it into the processed array
-            processed.append({vuln['description sections'] : fetch_vulnerability_description(vuln['key'])})
+            processed.append({'description sections': fetch_vulnerability_description(vuln['key'])})
         except Exception as e:
             print(f"Error processing vulnerability '{vuln.get('ruleKey')}': {e}")
+            raise
     return processed
 
 
 def save_vulnerabilities_to_file(vulnerabilities, filename=OUTPUT_FILE):
     """Save the processed vulnerabilities to an HTML file."""
-    template = Template("<ul>{% for key, value in data.items() %}<li>{{ key }}: {{ value }}</li>{% endfor %}</ul>")     # template for html file structure of each vulnerability
-    
+    template = Template(
+        "<ul>{% for key, value in data.items() %}<li>{{ key }}: {{ value }}</li>{% endfor %}</ul>")  # template for html file structure of each vulnerability
+
     # write to html file in chunks
     try:
         with open(filename, 'w') as file:
@@ -96,8 +101,11 @@ def main():
             processed_vulnerabilities = process_vulnerabilities(vulnerabilities)
             save_vulnerabilities_to_file(processed_vulnerabilities)
             print(f"Output saved in {OUTPUT_FILE}")
+        else:
+            raise Exception("there is no scanning to analyze...")
     except Exception as e:
         print(f"security issues scanner failed, error is: {e}")
+
 
 if __name__ == "__main__":
     main()
