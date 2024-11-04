@@ -21,7 +21,7 @@ pip install -r requirements.txt
 echo "Cloning the Git repository..."
 rm -rf $workdir 2> /dev/null
 mkdir $workdir
-pushd $workdir
+pushd $workdir 	
 if ! git clone $1 .
 then
   exit_command "failed to git clone"
@@ -51,6 +51,9 @@ docker run --name sonarscaner --rm --network host -v $(pwd):/usr/src sonarsource
 
 # waiting until docker completes
 docker wait sonarscaner 2> /dev/null
+echo "Waiting 20 seconds for analysis to upload to the sonar cloud..."
+sleep 20
+ 
 
 # return to home dir and clear the working directory
 popd
@@ -58,6 +61,7 @@ rm -rf $workdir
 
 # Step 4: Run the Python script to create a top 5 report
 echo "Running the Python script..."
+> top_5_vulnerabilities.html 2> /dev/null
 python3 analyze_scan.py
 
 # Step 5: open the vulnerabilities file
